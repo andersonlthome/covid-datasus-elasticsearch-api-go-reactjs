@@ -1,1 +1,1 @@
-# datasus-elasticsearch-api-go-reactjs
+# covid-datasus-elasticsearch-api-go-reactjs

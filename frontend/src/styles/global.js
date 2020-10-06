@@ -24,7 +24,7 @@ export default createGlobalStyle`
   /* faz as fontes ficarem mais definidas */
   body {
     -webkit-font-smoothing: antialiased;
-    background: #f0f0f0;
+    background: #fff;
   }
 
   /* caso esteja sem internet carrega a sans-serif */

@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react'; //useMemo,
 // import { Form } from '@rocketseat/unform'; //, Input
 import api from '../../services/api';
 import { Line } from 'react-chartjs-2';
+import { Grid, Button } from '@material-ui/core';
+import 'date-fns';
+import DateFnsUtils from '@date-io/date-fns';
+import {
+  MuiPickersUtilsProvider,
+  KeyboardDatePicker,
+} from '@material-ui/pickers';
+
+import './index.css';
 
 export default function Dashboard(props) {
 
@@ -9,61 +18,54 @@ export default function Dashboard(props) {
   const [dataPositive, setDataPositive] = useState([]);
   const [dataNegative, setDataNegative] = useState([]);
   const [renderChart, setRenderChart] = useState(false);
+  const [startDate, setStartDate] = useState(new Date('2020-05-02T00:24:48.897Z'));
+  const [endDate, setendDate] = useState(new Date());
 
   async function getFiltredFata() {
-    api.get('/getFiltredFata/2020-03-01T00:00:00/2020-10-01T00:00:00').then(res => {
+    console.log(startDate.toISOString())
+    api.get(`/getFiltredFata/${startDate.toISOString()}/${endDate.toISOString()}`).then(res => { 
       const negative = res.data.Negative.dataNotificacao;
       const positive = res.data.Positive.dataNotificacao;
       const negativeList = []
       const positiveList = []
-      // negative != null && negative.forEach(dateString => {
-        
-      //   if (negativeList.length === 0) {
-      //     negativeList.push({t: date, y: 1})
-      //   } else {
-      //     negativeList.forEach((n, index) => {
-      //       console.log(n.t,'->' ,date)
-      //       // if (n.t === date ) {
-      //       //   console.log("entrou")
-      //       //   n[index].y += 1;            
-      //       // } 
-      //       // else {
-      //       //   // console.log(negativeList)
-      //       //   negativeList.push({t: date, y: 1});
-      //       // }          
-      //     })
-      //   }
-      //   // 
-      // });
-      // console.log(negativeList)
+
       positive != null && positive.forEach(dateString => {
         let day = new Date(dateString).getDate();
-        let month = new Date(dateString).getMonth() + 1;        
+        let month = new Date(dateString).getMonth() + 1;
         let year = new Date(dateString).getFullYear();
         let date = new Date(`${year}-${month}-${day}`);
-
-        positiveList.push({t: new Date(date), y: 1});
+        let indexDateExists = null;
+        positiveList.map((p, index) => {
+          if (p.t.getTime() == date.getTime()) {
+            indexDateExists = index;
+          }
+        });
+        indexDateExists != null ?
+          positiveList[indexDateExists].y += 1 :
+          positiveList.push({ t: new Date(date), y: 1 });
       })
+
       negative != null && negative.forEach(dateString => {
         let day = new Date(dateString).getDate();
-        let month = new Date(dateString).getMonth() + 1;        
+        let month = new Date(dateString).getMonth() + 1;
         let year = new Date(dateString).getFullYear();
         let date = new Date(`${year}-${month}-${day}`);
-        let indexDateExists;
-        negativeList.map((p, index) => { 
-          console.log(index, p.t, date);
-          if (p.t.getTime() == date.getTime()) { 
-            console.log(true); 
+        let indexDateExists = null;
+        negativeList.map((p, index) => {
+          if (p.t.getTime() == date.getTime()) {
             indexDateExists = index;
-          } else { indexDateExists = null };
+          }
         });
-        console.log('indexDateExists', indexDateExists)
-        indexDateExists ? negativeList[indexDateExists].y += 1 : negativeList.push({t: new Date(date), y: 1});
-        console.log('negativeList', negativeList)        
+        indexDateExists != null ?
+          negativeList[indexDateExists].y += 1 :
+          negativeList.push({ t: new Date(date), y: 1 });
       })
-      console.log(negativeList)
-      setDataPositive(positiveList)
-      setDataNegative(negativeList)
+
+      const negativeSortedList = negativeList.slice().sort((a, b) => a.t - b.t)
+      const positiveSortedList = positiveList.slice().sort((a, b) => a.t - b.t)
+      console.log('negativeSortedList', negativeSortedList)
+      setDataPositive(positiveSortedList)
+      setDataNegative(negativeSortedList)
       setRenderChart(true)
     })
 
@@ -75,26 +77,25 @@ export default function Dashboard(props) {
 
   async function handleUpdate() {
     getFiltredFata();
-    // inserir datas e fetchAll 
   }
 
   const state = {
     // labels: label,
     datasets: [
       {
-        label: 'Testes Positivos',
+        label: 'Data dos resultados dos Testes Positivos',
         fill: false,
         lineTension: 0.5,
-        backgroundColor: 'rgba(75,192,192,1)',
+        // backgroundColor: 'rgba(75,192,192,1)',
         borderColor: 'red',
         borderWidth: 2,
         data: dataPositive
       },
       {
-        label: 'Testes Negativos',
+        label: 'Data dos resultados dos Testes Negativos',
         fill: false,
         lineTension: 0.1,
-        borderColor: 'rgba(12,4321,233,1)',
+        borderColor: 'blue',
         data: dataNegative
       }
     ]
@@ -102,11 +103,46 @@ export default function Dashboard(props) {
 
   return (
     <div>
-      <button className="getData" onClick={handleUpdate}></button>
+      <div className="getData">
+        <Button variant="contained" color="primary" onClick={handleUpdate}>
+          Atualizar
+        </Button>
+        <MuiPickersUtilsProvider utils={DateFnsUtils}>
+          <Grid container justify="space-around">
+            <KeyboardDatePicker
+              disableToolbar
+              variant="inline"
+              format="dd/MM/yyyy"
+              margin="normal"
+              id="date-picker-start"
+              label="Data inicial dos resultados"
+              value={startDate}
+              onChange={(date) => { setStartDate(date) }}
+              KeyboardButtonProps={{
+                'aria-label': 'change date',
+              }}
+            />
+            <KeyboardDatePicker
+              disableToolbar
+              variant="inline"
+              format="dd/MM/yyyy"
+              margin="normal"
+              id="date-picker-end"
+              label="Data final dos resultados"
+              value={endDate}
+              onChange={(date) => { setendDate(date) }}
+              KeyboardButtonProps={{
+                'aria-label': 'change date',
+              }}
+            />
+          </Grid>
+        </MuiPickersUtilsProvider>
+      </div>
+      <br />
       {renderChart && <Line
         data={state}
         options={{
-          title: {  
+          title: {
             display: true,
             text: 'Evolução dos Testes de COVID-19 no Brasil',
             fontSize: 20

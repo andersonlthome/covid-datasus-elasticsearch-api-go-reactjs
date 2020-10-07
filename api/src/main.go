@@ -157,7 +157,6 @@ func getFiltredFata(w http.ResponseWriter, r *http.Request) {
 				{
 					"range": {		
 						"dataNotificacao": {
-							"time_zone": "-03:00",
 							"gte": "`+params["initDate"]+`",
 							"lte": "`+params["finDate"]+`"
 						} 
@@ -167,7 +166,7 @@ func getFiltredFata(w http.ResponseWriter, r *http.Request) {
 		}
 	`		
 	// Pass the query string to the function and have it return a Reader object
-	readQuery := constructQuery(query, 100)
+	readQuery := constructQuery(query, 30000)
 
 	var dataSUS = getDataSUS(readQuery)
 	

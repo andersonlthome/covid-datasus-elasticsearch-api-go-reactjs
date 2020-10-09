@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; 
 import api from '../../services/api';
 import { Line } from 'react-chartjs-2';
-import { Grid, Button } from '@material-ui/core';
+import { Grid, Button, CircularProgress } from '@material-ui/core';
 import 'date-fns';
 import DateFnsUtils from '@date-io/date-fns';
 import {
@@ -179,13 +179,14 @@ export default function Dashboard() {
         </MuiPickersUtilsProvider>
       </div>
       <br />
+      {!renderChart && <CircularProgress />}
       {renderChart && 
         <Line
           data={state}
           options={{
             title: {
               display: true,
-              text: 'Evolução dos Testes de COVID-19 no Brasil por data dos resultados',
+              text: 'Evolução dos Testes de COVID-19 no Brasil por data de notificação',
               fontSize: 20
             },
             legend: {

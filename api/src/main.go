@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"context"
+	// "context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
-	"strconv" // typecast "size" int as string
+	// "reflect"
+	"time"
+	// "strconv" // typecast "size" int as string
 	"strings"
 	// Import the Elasticsearch library packages
 	"github.com/elastic/go-elasticsearch"
@@ -15,14 +16,14 @@ import (
 	"net/http"
 	"github.com/rs/cors"
 )
-
-func constructQuery(q string, size int) *strings.Reader {
-	// Build a query string from string passed to function
-	var query = `{"query": {`
+// constructQuery(q string, size int)
+func constructQuery(q string) *strings.Reader {
+	// Build a query string from string passed to function // "sort":{"dataNotificacao": "asc"},
+	var query = `{  "query": {`
 	// Concatenate query string with string passed to method call
 	query = query + q
 	// Use the strconv.Itoa() method to convert int to string
-	query = query + `}, "size": ` + strconv.Itoa(size) + `}`
+	query = query + `}}` //, "size": ` + strconv.Itoa(size) + `
 	fmt.Println("\nquery:", query)
 	// Check for JSON errors
 	isValid := json.Valid([]byte(query)) // returns bool
@@ -43,7 +44,6 @@ func constructQuery(q string, size int) *strings.Reader {
 	return read
 }
 
-
 type Response struct {
 	Positive struct {
 		DataNotificacao []string `json:"dataNotificacao"`
@@ -51,11 +51,118 @@ type Response struct {
 	Negative struct {
 		DataNotificacao []string `json:"dataNotificacao"`
 	}
+	WithoutTestOrTestResponse struct {
+		DataNotificacao []string `json:"dataNotificacao"`
+	}
 } 
 
-func getDataSUS(readQuery *strings.Reader) map[string]interface{}{
-	// Create a context object for the API calls
-	ctx := context.Background()
+// func getDataSUS(readQuery *strings.Reader) map[string]interface{}{
+// 	// Create a context object for the API calls
+// 	// ctx := context.Background()
+
+// 	// Instantiate an Elasticsearch configuration
+// 	cfg := elasticsearch.Config{
+// 		Addresses: []string{
+// 			"https://elasticsearch-saps.saude.gov.br/",
+// 		},
+// 		Username: "user-public-notificacoes",
+// 		Password: "Za4qNXdyQNSa9YaA",
+// 	}
+
+// 	// Instantiate a new Elasticsearch client object instance
+// 	client, err := elasticsearch.NewClient(cfg)
+	
+// 	// Check for connection errors to the Elasticsearch cluster
+// 	if err != nil {
+// 		fmt.Println("Elasticsearch connection error:", err)
+// 	}	
+
+// 	fmt.Println("readQuery:", readQuery)
+
+// 	var buf bytes.Buffer
+
+// 	// Attempt to encode the JSON query and look for errors
+// 	if err := json.NewEncoder(&buf).Encode(readQuery); err != nil {
+// 		log.Fatalf("json.NewEncoder() ERROR:", err)
+// 		return nil		
+// 	} else { // Query is a valid JSON object
+// 		fmt.Println("json.NewEncoder encoded query:", readQuery, "\n")
+
+// 		// Pass the JSON query to the Golang client's Search() method		
+// 		var milisec5min int = 60000*5// 60000 * 60 * 24
+
+// 		res, err := client.Search(
+// 			// client.Search.WithContext(ctx),
+// 			client.Search.WithIndex("desc-notificacoes-esusve-*"),
+// 			client.Search.WithBody(readQuery),
+// 			client.Search.WithSort("dataNotificacao"),
+// 			client.Search.WithSize(10),
+// 			// client.Search.WithTrackTotalHits(true),	
+// 			client.Search.WithPretty(),
+// 			client.Search.WithScroll(time.Duration(milisec5min)),
+// 		)
+		 
+// 		// res, err := client.Scroll(
+// 		// 	client.Search.WithIndex("desc-notificacoes-esusve-*"),
+// 		// 	client.Search.WithSort("_doc"),
+// 		// 	client.Search.WithSize(30000),
+// 		// 	client.Search.WithScroll(time.Duration(milisec5min)),		
+// 		// )
+	
+// 		// Check for any errors returned by API call to Elasticsearch
+// 		if err != nil {
+// 			log.Fatalf("Elasticsearch Search() API ERROR:", err)
+// 			return nil
+			
+// 		} else {// If no errors are returned, parse esapi.Response object
+// 			// fmt.Println("res TYPE:", reflect.TypeOf(res))
+	
+// 			// Close the result body when the function call is complete
+// 			defer res.Body.Close()	
+
+// 			// Instantiate a map interface object for storing returned documents
+// 			var mapResp map[string]interface{}
+
+// 			// fmt.Println("typeOf res.body:", reflect.TypeOf(res.Body))
+
+// 			// Decode the JSON response and using a pointer
+// 			if err := json.NewDecoder(res.Body).Decode(&mapResp); err == nil {
+// 				// fmt.Println("typeOf mapResp:", reflect.TypeOf(mapResp))
+// 				// fmt.Println("mapResp:", mapResp)				
+// 				return mapResp
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
+
+func getFiltredFata(w http.ResponseWriter, r *http.Request) {
+	var response Response
+	var batchNum int
+	var	scrollID string
+
+	params := mux.Vars(r)
+
+	// Create a new query string for the Elasticsearch method call
+	var query =`
+		"bool": {
+				"must": [				
+					{
+						"range": {		
+							"dataNotificacao": {
+								"gte": "`+params["initDate"]+`",
+								"lte": "`+params["finDate"]+`"
+							} 
+						}
+					}
+				]
+			}
+	`	
+		
+	// Pass the query string to the function and have it return a Reader object
+	readQuery := constructQuery(query)
+
+	// var dataSUS = getDataSUS(readQuery)
 
 	// Instantiate an Elasticsearch configuration
 	cfg := elasticsearch.Config{
@@ -72,29 +179,7 @@ func getDataSUS(readQuery *strings.Reader) map[string]interface{}{
 	// Check for connection errors to the Elasticsearch cluster
 	if err != nil {
 		fmt.Println("Elasticsearch connection error:", err)
-	}
-
-	// VOLTANDO VAZIO
-	// "bool": {
-	// 	"must": [
-	// 		{
-	// 		"term": { 
-	// 			"resultadoTeste": "Negativo" 
-	// 			} 
-	// 		},	 
-	// 		{
-	// 			"range": {		
-	// 				"dataNotificacao": {
-	// 					"time_zone": "-03:00",
-	// 					"gte": "2020-03-01T00:00:00",
-	// 					"lte": "now"
-	// 				} 	
-	// 			}
-	// 		}
-	// 	]
-	// }
-
-	
+	}	
 
 	fmt.Println("readQuery:", readQuery)
 
@@ -103,90 +188,116 @@ func getDataSUS(readQuery *strings.Reader) map[string]interface{}{
 	// Attempt to encode the JSON query and look for errors
 	if err := json.NewEncoder(&buf).Encode(readQuery); err != nil {
 		log.Fatalf("json.NewEncoder() ERROR:", err)
-		return nil		
+
 	} else { // Query is a valid JSON object
 		fmt.Println("json.NewEncoder encoded query:", readQuery, "\n")
 
 		// Pass the JSON query to the Golang client's Search() method		
-		
+		var milisec5min int = 60000*5// 60000 * 60 * 24
+
 		res, err := client.Search(
-			client.Search.WithContext(ctx),
-			client.Search.WithIndex("desc-notificacoes-esusve-ac"),
+			// client.Search.WithContext(ctx),
+			client.Search.WithIndex("desc-notificacoes-esusve-*"),
 			client.Search.WithBody(readQuery),
-			client.Search.WithTrackTotalHits(true),
+			client.Search.WithSort("dataNotificacao"),
+			client.Search.WithSize(30000),
+			// client.Search.WithTrackTotalHits(true),	
+			client.Search.WithPretty(),
+			client.Search.WithScroll(time.Duration(milisec5min)),
 		)
 	
 		// Check for any errors returned by API call to Elasticsearch
 		if err != nil {
 			log.Fatalf("Elasticsearch Search() API ERROR:", err)
-			return nil
 			
 		} else {// If no errors are returned, parse esapi.Response object
-			fmt.Println("res TYPE:", reflect.TypeOf(res))
-	
 			// Close the result body when the function call is complete
 			defer res.Body.Close()	
-	
-			// Instantiate a map interface object for storing returned documents
-			var mapResp map[string]interface{}
 
-			fmt.Println("typeOf res.body:", reflect.TypeOf(res.Body))
+			// Instantiate a map interface object for storing returned documents
+			var mapRespDataSUS map[string]interface{}			
 
 			// Decode the JSON response and using a pointer
-			if err := json.NewDecoder(res.Body).Decode(&mapResp); err == nil {
-				// fmt.Println(`&mapResp:`, &mapResp)
-				// fmt.Println(`mapResp["hits"]:`, mapResp["hits"].(map[string]interface{})["hits"])
-				fmt.Println("typeOf mapResp:", reflect.TypeOf(mapResp))
-				return mapResp
+			if err := json.NewDecoder(res.Body).Decode(&mapRespDataSUS); err == nil {
 
-				
-			}
-		}
-	}
-	return nil
-}
+				scrollID = mapRespDataSUS["_scroll_id"].(string)
 
-func getFiltredFata(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	fmt.Println("params", params)
-
-	// Create a new query string for the Elasticsearch method call
-	var query =`
-		"bool": {
-			"must": [				
-				{
-					"range": {		
-						"dataNotificacao": {
-							"gte": "`+params["initDate"]+`",
-							"lte": "`+params["finDate"]+`"
-						} 
-					}
-				}
-			]
-		}
-	`		
-	// Pass the query string to the function and have it return a Reader object
-	readQuery := constructQuery(query, 30000)
-
-	var dataSUS = getDataSUS(readQuery)
-	
-	var response Response
-	
-	for _, p := range dataSUS["hits"].(map[string]interface{})["hits"].([]interface{}) {	
+				for _, p := range mapRespDataSUS["hits"].(map[string]interface{})["hits"].([]interface{}) {	
 		
-		person := p.(map[string]interface{}) 
-		detail := person["_source"].(map[string]interface{})
+					person := p.(map[string]interface{}) 
+					detail := person["_source"].(map[string]interface{})		
+			
+					if detail["resultadoTeste"] == "Positivo" {
+						response.Positive.DataNotificacao = append(response.Positive.DataNotificacao, detail["dataNotificacao"].(string))
+					}
+					if detail["resultadoTeste"] == "Negativo" {
+						response.Negative.DataNotificacao = append(response.Negative.DataNotificacao, detail["dataNotificacao"].(string))
+					}
+					if detail["resultadoTeste"] != "Positivo" && detail["resultadoTeste"] != "Negativo" {
+						response.WithoutTestOrTestResponse.DataNotificacao = append(response.WithoutTestOrTestResponse.DataNotificacao, detail["dataNotificacao"].(string))
+					}
+				}	
+			}
 
-		if detail["resultadoTeste"] == "Positivo" {
-			fmt.Println("positivo", detail["dataNotificacao"])
-			response.Positive.DataNotificacao = append(response.Positive.DataNotificacao, detail["dataNotificacao"].(string))
-		}
-		if detail["resultadoTeste"] == "Negativo" {
-			fmt.Println("negativo", detail["dataNotificacao"])
-			response.Negative.DataNotificacao = append(response.Negative.DataNotificacao, detail["dataNotificacao"].(string))
+			for {
+				fmt.Println("batchNum",batchNum)
+				batchNum++
+		
+				// Perform the scroll request and pass the scrollID and scroll duration
+				//
+				res, err := client.Scroll(client.Scroll.WithScrollID(scrollID), client.Scroll.WithScroll(time.Minute))
+				if err != nil {
+					log.Fatalf("Error: %s", err)
+				}
+				if res.IsError() {
+					log.Fatalf("Error response: %s", res)
+				}
+		
+				// res.Body.Close()
+				
+				// Decode the JSON response and using a pointer
+				if err := json.NewDecoder(res.Body).Decode(&mapRespDataSUS); err == nil {
+
+					res.Body.Close()
+					// Extract the search results
+					//
+					hits := mapRespDataSUS["hits"].(map[string]interface{})["hits"].([]interface{})
+
+					if len(hits) < 1 {
+						log.Println("Finished scrolling")
+						break
+					} else {
+						scrollID = mapRespDataSUS["_scroll_id"].(string)
+						// fmt.Println("scrollID",scrollID)
+						for _, p := range mapRespDataSUS["hits"].(map[string]interface{})["hits"].([]interface{}) {	
+				
+							person := p.(map[string]interface{}) 
+							detail := person["_source"].(map[string]interface{})
+
+							// fmt.Println("resultadoTeste",detail["resultadoTeste"])
+
+							if detail["resultadoTeste"] == "Positivo" {
+								response.Positive.DataNotificacao = append(response.Positive.DataNotificacao, detail["dataNotificacao"].(string))
+							}
+							if detail["resultadoTeste"] == "Negativo" {
+								response.Negative.DataNotificacao = append(response.Negative.DataNotificacao, detail["dataNotificacao"].(string))
+							}
+							if detail["resultadoTeste"] != "Positivo" && detail["resultadoTeste"] != "Negativo" {
+								response.WithoutTestOrTestResponse.DataNotificacao = append(response.WithoutTestOrTestResponse.DataNotificacao, detail["dataNotificacao"].(string))
+							}
+						}
+
+					}
+
+				} else {
+					fmt.Println("Error: ", err)
+				}
+
+			}
+
 		}
 	}
-	
+
 	json.NewEncoder(w).Encode(response)	
 }
 
